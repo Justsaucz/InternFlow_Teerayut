@@ -2,213 +2,85 @@ import { Router, Response } from 'express';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import { Role, EvaluationStatus } from '@prisma/client';
+import { HttpError, activeStatuses, placementStatuses, targetHours, companyPlacement, withStudentLock, rating, handleRouteError } from '../lib/workflow';
 
 const router = Router();
 
-// Handler function for fetching company interns
 const getCompanyInternsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
-    const company = await prisma.companyProfile.findUnique({
-      where: { userId }
-    });
-
-    if (!company) {
-      res.status(404).json({ error: 'Company profile not found.' });
-      return;
-    }
-
-    // Find all committed, cancel_requested or accepted applications for this company
+    const company = await prisma.companyProfile.findUnique({ where: { userId: req.user!.userId } });
+    if (!company) throw new HttpError(404, 'Company profile not found.');
     const applications = await prisma.application.findMany({
-      where: {
-        jobPost: { companyProfileId: company.id },
-        status: { in: ['COMMITTED', 'CANCEL_REQUESTED', 'ACCEPTED'] }
-      },
-      include: {
-        jobPost: true,
-        student: {
-          include: {
-            user: { select: { id: true, name: true, email: true, avatarUrl: true } },
-            dailyLogs: {
-              orderBy: { logDate: 'asc' }
-            },
-            evaluations: {
-              where: { companyId: company.id }
-            }
-          }
-        },
-        evaluation: true
-      },
+      where: { jobPost: { companyProfileId: company.id }, status: { in: activeStatuses } },
+      include: { jobPost: true, student: { include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } } }, dailyLogs: { orderBy: { logDate: 'asc' } }, evaluation: true },
       orderBy: { createdAt: 'desc' }
     });
-
-    const interns = applications.map((app) => {
-      const logs = app.student.dailyLogs || [];
-      const totalHours = logs.reduce((sum, l) => sum + l.hoursWorked, 0);
-      const approvedHours = logs.filter(l => l.mentorApproved).reduce((sum, l) => sum + l.hoursWorked, 0);
-
-      return {
-        applicationId: app.id,
-        status: app.status,
-        jobTitle: app.jobPost.title,
-        student: app.student,
-        totalHours,
-        approvedHours,
-        targetHours: 400,
-        evaluation: app.evaluation || app.student.evaluations[0] || null
-      };
-    });
-
-    res.json(interns);
-  } catch (error) {
-    console.error('Error fetching company interns:', error);
-    res.status(500).json({ error: 'Failed to fetch interns.' });
-  }
+    res.json(applications.map(app => ({
+      applicationId: app.id, status: app.status, jobTitle: app.jobPost.title,
+      student: { ...app.student, dailyLogs: app.dailyLogs },
+      totalHours: app.dailyLogs.reduce((sum, log) => sum + log.hoursWorked, 0),
+      approvedHours: app.dailyLogs.filter(log => log.mentorApproved).reduce((sum, log) => sum + log.hoursWorked, 0),
+      targetHours, evaluation: app.evaluation
+    })));
+  } catch (error) { handleRouteError(res, error, 'Failed to fetch interns.'); }
 };
 
-// GET /api/evaluations/company - Company HR gets their active intern roster & evaluation status
 router.get('/company', authenticate, authorize([Role.COMPANY_HR]), getCompanyInternsHandler);
-
-// GET /api/evaluations/company/interns - Alias endpoint for frontend compatibility
 router.get('/company/interns', authenticate, authorize([Role.COMPANY_HR]), getCompanyInternsHandler);
 
-// POST /api/evaluations/submit - Company HR submits evaluation
 router.post('/submit', authenticate, authorize([Role.COMPANY_HR]), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
-    const { 
-      studentId, 
-      applicationId, 
-      workQualityScore, 
-      punctualityScore, 
-      teamworkScore, 
-      feedback 
-    } = req.body;
-
-    const company = await prisma.companyProfile.findUnique({
-      where: { userId }
-    });
-
-    if (!company) {
-      res.status(404).json({ error: 'Company profile not found.' });
-      return;
-    }
-
-    // Resolve studentId if not provided directly
-    let targetStudentId = studentId;
-    if (!targetStudentId && applicationId) {
-      const app = await prisma.application.findUnique({
-        where: { id: applicationId },
-        select: { studentId: true }
+    const { studentId, applicationId, feedback } = req.body;
+    if ((!studentId && !applicationId) || (studentId != null && typeof studentId !== 'string') || (applicationId != null && typeof applicationId !== 'string') || (typeof feedback !== 'string' || !feedback.trim())) throw new HttpError(400, 'A valid student or application and feedback are required.');
+    const company = await prisma.companyProfile.findUnique({ where: { userId: req.user!.userId } });
+    if (!company) throw new HttpError(404, 'Company profile not found.');
+    const app = await prisma.application.findFirst({ where: {
+      ...(applicationId ? { id: applicationId } : {}), ...(studentId ? { studentId } : {}),
+      jobPost: { companyProfileId: company.id }, status: { in: activeStatuses }
+    }, orderBy: { updatedAt: 'desc' } });
+    if (!app) throw new HttpError(403, 'You can only evaluate your own committed interns.');
+    const scores = { workQualityScore: rating(req.body.workQualityScore)!, punctualityScore: rating(req.body.punctualityScore)!, teamworkScore: rating(req.body.teamworkScore)! };
+    const evaluation = await withStudentLock(app.studentId, async tx => {
+      const current = await tx.application.findFirst({ where: { id: app.id, studentId: app.studentId, jobPost: { companyProfileId: company.id }, status: { in: activeStatuses } } });
+      if (!current) throw new HttpError(409, 'This placement is no longer active.');
+      return tx.internshipEvaluation.upsert({
+        where: { applicationId: app.id },
+        create: { ...scores, feedback: feedback.trim(), applicationId: app.id, studentId: app.studentId, companyId: company.id, status: EvaluationStatus.COMPANY_EVALUATED },
+        update: { ...scores, feedback: feedback.trim(), status: EvaluationStatus.COMPANY_EVALUATED }
       });
-      targetStudentId = app?.studentId;
-    }
-
-    if (!targetStudentId) {
-      res.status(400).json({ error: 'Student ID or valid Application ID is required.' });
-      return;
-    }
-
-    // Check if evaluation exists
-    const existing = await prisma.internshipEvaluation.findFirst({
-      where: {
-        OR: [
-          ...(applicationId ? [{ applicationId }] : []),
-          { studentId: targetStudentId, companyId: company.id }
-        ]
-      }
     });
-
-    if (existing) {
-      const updated = await prisma.internshipEvaluation.update({
-        where: { id: existing.id },
-        data: {
-          workQualityScore: Number(workQualityScore),
-          punctualityScore: Number(punctualityScore),
-          teamworkScore: Number(teamworkScore),
-          feedback,
-          status: EvaluationStatus.COMPANY_EVALUATED
-        }
-      });
-      res.json(updated);
-      return;
-    }
-
-    const created = await prisma.internshipEvaluation.create({
-      data: {
-        studentId: targetStudentId,
-        companyId: company.id,
-        applicationId: applicationId || null,
-        workQualityScore: Number(workQualityScore),
-        punctualityScore: Number(punctualityScore),
-        teamworkScore: Number(teamworkScore),
-        feedback,
-        status: EvaluationStatus.COMPANY_EVALUATED
-      }
-    });
-
-    res.status(201).json(created);
-  } catch (error) {
-    console.error('Error submitting evaluation:', error);
-    res.status(500).json({ error: 'Failed to submit evaluation.' });
-  }
+    res.json(evaluation);
+  } catch (error) { handleRouteError(res, error, 'Failed to submit evaluation.'); }
 });
 
-
-
-// GET /api/evaluations/report/:studentId - Full official completion report summary
 router.get('/report/:studentId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const studentId = req.params.studentId as string;
-
+    const requestedId = typeof req.query.applicationId === 'string' ? req.query.applicationId : undefined;
+    let placement;
+    if (req.user!.role === Role.STUDENT) {
+      const own = await prisma.studentProfile.findFirst({ where: { id: studentId, userId: req.user!.userId } });
+      if (!own) throw new HttpError(403, 'You can only view your own report.');
+      placement = await prisma.application.findFirst({ where: { ...(requestedId ? { id: requestedId } : {}), studentId, status: { in: requestedId ? placementStatuses : activeStatuses } }, orderBy: { updatedAt: 'desc' } });
+      if (!placement && !requestedId) placement = await prisma.application.findFirst({ where: { studentId, status: 'CANCELLED' }, orderBy: { updatedAt: 'desc' } });
+    } else if (req.user!.role === Role.COMPANY_HR) {
+      placement = await companyPlacement(req.user!.userId, studentId, requestedId, true);
+    } else { throw new HttpError(403, 'You are not authorized to view this report.'); }
+    if (!placement) throw new HttpError(404, 'Student placement not found.');
     const student = await prisma.studentProfile.findUnique({
-      where: { id: studentId },
-      include: {
+      where: { id: studentId }, include: {
         user: { select: { name: true, email: true } },
-        dailyLogs: {
-          orderBy: { logDate: 'asc' }
-        },
-        evaluations: {
-          include: {
-            company: true
-          }
-        },
-        applications: {
-          where: { status: { in: ['COMMITTED', 'CANCEL_REQUESTED', 'ACCEPTED'] } },
-          include: {
-            jobPost: {
-              include: {
-                company: true
-              }
-            }
-          }
-        }
+        dailyLogs: { where: { applicationId: placement.id }, orderBy: { logDate: 'asc' } },
+        evaluations: { where: { applicationId: placement.id }, include: { company: true } },
+        applications: { where: { id: placement.id }, include: { jobPost: { include: { company: true } } } }
       }
     });
-
-    if (!student) {
-      res.status(404).json({ error: 'Student placement not found.' });
-      return;
-    }
-
-    const studentAny = student as any;
-    const activeApp = studentAny.applications ? studentAny.applications[0] : null;
-    const evaluation = studentAny.evaluations ? studentAny.evaluations[0] : null;
-    const logs = studentAny.dailyLogs || [];
-    const totalHours = logs.reduce((sum: number, l: any) => sum + l.hoursWorked, 0);
-
-    res.json({
-      student,
-      activeApp,
-      evaluation,
-      totalHours,
-      dailyLogs: logs,
-      weeklyLogs: logs
-    });
-  } catch (error) {
-    console.error('Error generating completion report:', error);
-    res.status(500).json({ error: 'Failed to generate report.' });
-  }
+    if (!student) throw new HttpError(404, 'Student profile not found.');
+    const approvedHours = student.dailyLogs.filter(log => log.mentorApproved).reduce((sum, log) => sum + log.hoursWorked, 0);
+    res.json({ student, activeApp: student.applications[0], evaluation: student.evaluations[0] || null,
+      totalHours: student.dailyLogs.reduce((sum, log) => sum + log.hoursWorked, 0), approvedHours, targetHours,
+      dailyLogs: student.dailyLogs, weeklyLogs: student.dailyLogs });
+  } catch (error) { handleRouteError(res, error, 'Failed to generate report.'); }
 });
 
 export default router;

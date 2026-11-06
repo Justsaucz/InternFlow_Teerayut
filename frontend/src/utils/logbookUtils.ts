@@ -32,6 +32,7 @@ export interface GroupedWeek {
   hasBackdated: boolean;
   mentorRating: number | null;
   mentorFeedback: string | null;
+  ratedDays?: number;
   days: DailyLog[];
 }
 
@@ -59,10 +60,10 @@ export function parseAttachmentLinks(attachmentUrl: string | null | undefined): 
       return parsed
         .map((item) => {
           if (typeof item === 'string' && item.trim()) return { title: 'Artifact Link', url: item.trim() };
-          if (typeof item === 'object' && item?.url) return { title: item.title?.trim() || 'Artifact Link', url: item.url.trim() };
+          if (typeof item === 'object' && typeof item?.url === 'string') return { title: (typeof item.title === 'string' ? item.title.trim() : '') || 'Artifact Link', url: item.url.trim() };
           return null;
         })
-        .filter(Boolean) as AttachmentLink[];
+        .filter((link): link is AttachmentLink => Boolean(link && (/^https?:\/\//i.test(link.url) || /^\/(?:uploads|private-uploads)\//.test(link.url))));
     }
   } catch {
     // fallback

@@ -2,11 +2,13 @@ import { Router, Response } from 'express';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import { Role } from '@prisma/client';
+import { HttpError, placementStatuses, handleRouteError } from '../lib/workflow';
+import { cleanText, questions } from '../lib/screening';
 
 const router = Router();
 
 // GET all active jobs (For students to search)
-router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const jobs = await prisma.jobPost.findMany({
       where: { isActive: true },
@@ -38,7 +40,8 @@ router.get('/company', authenticate, authorize([Role.COMPANY_HR]), async (req: A
     const jobs = await prisma.jobPost.findMany({
       where: { companyProfileId: companyProfile.id },
       include: {
-        _count: { select: { applications: true } }
+        _count: { select: { applications: true } },
+        screeningTemplate:{select:{onApply:true}}
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -51,7 +54,7 @@ router.get('/company', authenticate, authorize([Role.COMPANY_HR]), async (req: A
 });
 
 // GET single job details
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const job = await prisma.jobPost.findUnique({
@@ -101,8 +104,15 @@ router.post('/', authenticate, authorize([Role.COMPANY_HR]), async (req: AuthReq
       return;
     }
 
+    const questionnaire=req.body.questionnaire;
+    let template: {title:string;questions:ReturnType<typeof questions>;onApply:boolean}|undefined;
+    if(questionnaire!=null){
+      if(typeof questionnaire!=='object'||questionnaire.onApply!==true)throw new HttpError(400,'A publishing questionnaire must be required during application.');
+      template={title:cleanText(questionnaire.title,160),questions:questions(questionnaire.questions),onApply:true};
+    }
     const newJob = await prisma.jobPost.create({
       data: {
+        ...(template?{screeningTemplate:{create:{title:template.title,questions:JSON.parse(JSON.stringify(template.questions)),onApply:true,updatedBy:userId!}}}:{}),
         companyProfileId: companyProfile.id,
         title,
         description,
@@ -122,8 +132,7 @@ router.post('/', authenticate, authorize([Role.COMPANY_HR]), async (req: AuthReq
 
     res.status(201).json(newJob);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    handleRouteError(res,error,'Failed to publish job and questionnaire.');
   }
 });
 
@@ -214,7 +223,17 @@ router.delete('/:id', authenticate, authorize([Role.COMPANY_HR]), async (req: Au
       return;
     }
 
+    // Deleting a posting must never erase a placement or its certification history.
+    const linkedPlacement = await prisma.application.findFirst({ where: { jobPostId: id, status: { in: placementStatuses } } });
+    if (linkedPlacement) throw new HttpError(409, 'This posting has internship records. Close the posting instead of deleting it.');
+
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "JobPost" WHERE id = ${id} FOR UPDATE`;
+      const placement = await tx.application.findFirst({ where: { jobPostId: id, status: { in: placementStatuses } } });
+      const history = await tx.dailyLog.findFirst({ where: { application: { jobPostId: id } } });
+      const evaluation = await tx.internshipEvaluation.findFirst({ where: { application: { jobPostId: id } } });
+      const screening = await tx.application.findFirst({ where: { jobPostId: id, OR: [{ evidenceEntries: { some: {} } }, { screeningAssessment: { isNot: null } }, { portfolioReviews: { some: {} } }] } });
+      if (placement || history || evaluation || screening) throw new HttpError(409, 'This posting has internship or screening records. Close the posting instead.');
       // 1. Find all applications for this job
       const applications = await tx.application.findMany({
         where: { jobPostId: id },
@@ -255,8 +274,7 @@ router.delete('/:id', authenticate, authorize([Role.COMPANY_HR]), async (req: Au
 
     res.json({ message: 'Job deleted successfully' });
   } catch (error) {
-    console.error('Error deleting job post:', error);
-    res.status(500).json({ error: 'Failed to delete job post.' });
+    handleRouteError(res, error, 'Failed to delete job post.');
   }
 });
 

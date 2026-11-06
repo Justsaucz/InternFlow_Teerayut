@@ -15,16 +15,22 @@ import StudentLogbook from './pages/student/StudentLogbook';
 import CompanyEvaluations from './pages/company/CompanyEvaluations';
 
 import Home from './pages/Home';
+import { lazy, Suspense } from 'react';
+const AccountRecovery = lazy(() => import('./pages/AccountRecovery'));
+const ScreeningWorkspace = lazy(() => import('./pages/ScreeningWorkspace'));
 
 function App() {
   return (
     <LanguageProvider>
       <ToastProvider>
         <Router>
-        <Routes>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-emerald-800" role="status">Loading InternFlow...</div>}><Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<AccountRecovery mode="forgot" />} />
+          <Route path="/reset-password" element={<AccountRecovery mode="reset" />} />
+          <Route path="/verify-email" element={<AccountRecovery mode="verify" />} />
           
           {/* Direct Redirections for Top-Level Links */}
           <Route path="/jobs" element={<Navigate to="/dashboard/jobs" replace />} />
@@ -35,6 +41,7 @@ function App() {
           {/* Dashboard Routes with Sidebar */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="screening" element={<ScreeningWorkspace />} />
             
             {/* Student Routes */}
             <Route path="jobs" element={<JobSearch />} />
@@ -51,7 +58,7 @@ function App() {
 
           {/* Catch-all Wildcard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        </Routes></Suspense>
       </Router>
     </ToastProvider>
   </LanguageProvider>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   AlertCircle, 
   Loader2, 
@@ -19,7 +19,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const [params] = useSearchParams();
+  const { t, language } = useLanguage();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,8 @@ export default function Login() {
       if (res.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/dashboard');
+        const redirect = params.get('redirect');
+        navigate(redirect && /^\/dashboard(?:[/?]|$)/.test(redirect) ? redirect : '/dashboard', { replace: true });
       } else {
         setError(data.error || t.auth.invalidCredentials);
       }
@@ -50,7 +52,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div lang={language} className="auth-shell min-h-screen bg-slate-50 flex">
       {/* ── Left Showcase Pane (Desktop Only) ────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#062314] via-[#0a3820] to-[#03150c] text-white p-12 xl:p-16 flex-col justify-between overflow-hidden">
         {/* Glow Spheres */}
@@ -59,19 +61,7 @@ export default function Login() {
 
         {/* Brand Header */}
         <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-              IF
-            </div>
-            <div>
-              <span className="text-2xl font-black tracking-tight text-white font-heading">
-                Intern<span className="text-emerald-400">Flow</span>
-              </span>
-              <span className="block text-xs uppercase tracking-widest text-emerald-300/80 font-bold">
-                Talent Operating System
-              </span>
-            </div>
-          </Link>
+          <Link to="/" className="brand-lockup"><span className="brand-symbol">if<span>•</span></span><span>Intern<span className="brand-flow">Flow</span><small>Make your next move.</small></span></Link>
         </div>
 
         {/* Central Content */}
@@ -165,6 +155,7 @@ export default function Login() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                   {t.auth.passwordLabel}
                 </label>
+                <Link to="/forgot-password" className="text-xs font-semibold text-emerald-700 hover:underline">{language === 'th' ? 'ลืมรหัสผ่าน?' : 'Forgot password?'}</Link>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -214,6 +205,7 @@ export default function Login() {
             {t.auth.demoHintText}
           </div>
 
+          <p className="text-center text-xs text-slate-500"><Link to={`/verify-email?email=${encodeURIComponent(email)}`} className="text-emerald-800 underline">{language === 'th' ? 'ยังไม่ได้ยืนยันอีเมล? ส่งลิงก์อีกครั้ง' : 'Email not verified? Resend verification'}</Link></p>
           {/* Footer Navigation */}
           <div className="pt-4 border-t border-slate-200/80 text-center text-sm text-slate-600">
             {t.auth.dontHaveAccount}{' '}

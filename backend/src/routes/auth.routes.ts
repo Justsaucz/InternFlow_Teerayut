@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { Role } from '@prisma/client';
+import { handleRouteError, HttpError } from '../lib/workflow';
+import { mailConfigured, sendAccountLink } from '../lib/accountMail';
 
 const router = Router();
 
@@ -10,8 +12,10 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, name, role } = req.body;
 
-    if (!email || !password || !name || !role) {
-      res.status(400).json({ error: 'Missing required fields' });
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.length > 254 ||
+        typeof password !== 'string' || password.length < 6 || Buffer.byteLength(password, 'utf8') > 72 ||
+        typeof name !== 'string' || !name.trim() || ![Role.STUDENT, Role.COMPANY_HR].includes(role)) {
+      res.status(400).json({ error: 'Provide a valid email, name, student/company role, and a password of at least 6 characters (up to 72 bytes).' });
       return;
     }
 
@@ -24,42 +28,24 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!mailConfigured()) throw new HttpError(503, 'Email delivery must be configured before registering new accounts.');
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Nested writes keep account and profile creation atomic.
     const user = await prisma.user.create({
       data: {
-        email: cleanEmail,
-        password: hashedPassword,
-        name,
-        role: role as Role,
-      },
+        email: cleanEmail, password: hashedPassword, name: name.trim(), role, emailVerificationRequired: true,
+        ...(role === Role.STUDENT ? {
+          studentProfile: { create: { studentId: '', major: '', faculty: '', year: 1, skills: [] } }
+        } : { companyProfile: { create: { companyName: name.trim(), industry: '' } } })
+      }
     });
 
-    // Create profile based on role
-    if (role === Role.STUDENT) {
-      await prisma.studentProfile.create({
-        data: {
-          userId: user.id,
-          studentId: '', // To be updated by student later
-          major: '',
-          faculty: '',
-          year: 1,
-        }
-      });
-    } else if (role === Role.COMPANY_HR) {
-      await prisma.companyProfile.create({
-        data: {
-          userId: user.id,
-          companyName: name, // Default to user name for now
-          industry: '',
-        }
-      });
-    }
-
-    res.status(201).json({ message: 'User registered successfully', userId: user.id });
+    let emailSent = true;
+    try { await sendAccountLink(user, 'VERIFY_EMAIL'); } catch { emailSent = false; console.error('Verification email delivery failed. Use resend after fixing SMTP.'); }
+    res.status(201).json({ message: 'Account created. Verify your email before signing in.', userId: user.id, verificationRequired: true, emailSent });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    handleRouteError(res, error, 'Failed to register account.');
   }
 });
 
@@ -67,7 +53,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
       res.status(400).json({ error: 'Email and password are required' });
       return;
     }
@@ -90,8 +76,10 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (user.emailVerificationRequired && !user.emailVerifiedAt) { res.status(403).json({ error: 'Verify your email before signing in.', code: 'EMAIL_NOT_VERIFIED' }); return; }
+
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, passwordVersion: user.passwordVersion },
       process.env.JWT_SECRET || 'super_secret_jwt_key',
       { expiresIn: '24h' }
     );

@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Independent test servers must not replace the running preview's optimizer cache.
+  cacheDir: process.env.VITE_CACHE_DIR || '.vite-cache',
   plugins: [react(), tailwindcss()],
   server: {
     port: 3000,

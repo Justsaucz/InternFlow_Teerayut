@@ -26,7 +26,7 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +51,7 @@ export default function Register() {
       if (res.ok) {
         setSuccess(true);
         setTimeout(() => {
-          navigate('/login');
+          navigate('/verify-email?email=' + encodeURIComponent(email));
         }, 1500);
       } else {
         setError(data.error || 'Registration failed. Please check your information.');
@@ -65,7 +65,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div lang={language} className="auth-shell min-h-screen bg-slate-50 flex">
       {/* ── Left Showcase Pane (Desktop Only) ────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#062314] via-[#0a3820] to-[#03150c] text-white p-12 xl:p-16 flex-col justify-between overflow-hidden">
         {/* Glow Spheres */}
@@ -74,19 +74,7 @@ export default function Register() {
 
         {/* Brand Header */}
         <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-              IF
-            </div>
-            <div>
-              <span className="text-2xl font-black tracking-tight text-white font-heading">
-                Intern<span className="text-emerald-400">Flow</span>
-              </span>
-              <span className="block text-xs uppercase tracking-widest text-emerald-300/80 font-bold">
-                Talent Operating System
-              </span>
-            </div>
-          </Link>
+          <Link to="/" className="brand-lockup"><span className="brand-symbol">if<span>•</span></span><span>Intern<span className="brand-flow">Flow</span><small>Make your next move.</small></span></Link>
         </div>
 
         {/* Central Showcase Content */}
@@ -176,7 +164,7 @@ export default function Register() {
           {success && (
             <div className="flex items-center p-4 text-sm text-emerald-800 rounded-2xl bg-emerald-50 border border-emerald-200">
               <CheckCircle2 className="w-5 h-5 mr-3 flex-shrink-0 text-emerald-600" />
-              <span>Registration successful! Redirecting to login...</span>
+              <span>{language === 'th' ? 'สร้างบัญชีแล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ' : 'Account created. Verify your email before signing in.'}</span>
             </div>
           )}
 

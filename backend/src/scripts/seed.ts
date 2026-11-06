@@ -89,7 +89,7 @@ async function main() {
     }
   });
 
-  const job2 = await prisma.jobPost.create({
+  await prisma.jobPost.create({
     data: {
       companyProfileId: hrUser1.companyProfile!.id,
       title: 'Cloud & DevOps Engineering Intern',
@@ -160,7 +160,7 @@ async function main() {
     }
   });
 
-  const appInnovate = await prisma.application.create({
+  await prisma.application.create({
     data: {
       studentId: studentUser.studentProfile!.id,
       jobPostId: job3.id,

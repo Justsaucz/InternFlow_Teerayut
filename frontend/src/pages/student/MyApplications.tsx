@@ -1,5 +1,7 @@
+import ReadinessPanel, { type Readiness } from '../../components/ReadinessPanel';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import ReadinessTasks from '../../components/ReadinessTasks';
 import { 
   FileText, 
   Clock, 
@@ -24,6 +26,7 @@ import PublicProfileModal from '../../components/modals/PublicProfileModal';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface Application {
+  readiness?:Readiness|null;
   id: string;
   status: string;
   coverLetter: string | null;
@@ -108,10 +111,14 @@ export default function MyApplications() {
   const [submittingAction, setSubmittingAction] = useState(false);
 
   const { success, error: showError } = useToast();
+  const location=useLocation();
 
   useEffect(() => {
     fetchApplications();
+    const timer=setInterval(()=>void fetchApplications(),30000);window.addEventListener('focus',fetchApplications);
+    return()=>{clearInterval(timer);window.removeEventListener('focus',fetchApplications);};
   }, []);
+  useEffect(()=>{if(!loading&&location.hash.startsWith('#application-')){const id=location.hash.slice(1);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'center'}));}},[loading,location.hash]);
 
   const fetchApplications = async () => {
     try {
@@ -203,9 +210,9 @@ export default function MyApplications() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="workspace-page max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+      <div className="workspace-page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
@@ -245,6 +252,8 @@ export default function MyApplications() {
           ))}
         </div>
       </div>
+
+      <ReadinessTasks applications={applications} onOpen={id=>{setActiveTab('all');requestAnimationFrame(()=>document.getElementById(`application-${id}`)?.scrollIntoView({behavior:'smooth',block:'center'}));}}/>
 
       {/* ── Active Placement Notification Banner ───────────────────────────── */}
       {committedPlacement && (
@@ -306,7 +315,8 @@ export default function MyApplications() {
 
             return (
               <div 
-                key={app.id} 
+                key={app.id}
+                id={`application-${app.id}`}
                 className={`bg-white rounded-3xl border transition-all duration-200 p-6 sm:p-7 space-y-6 shadow-xs hover:shadow-md ${
                   isCommitted 
                     ? 'border-primary-300 ring-2 ring-primary-100/70' 
@@ -438,7 +448,9 @@ export default function MyApplications() {
                   </div>
                 )}
 
-                {/* 4-Stage Progress Stepper */}
+                <ReadinessPanel applicationId={app.id} value={app.readiness} onUpdated={fetchApplications}/>
+
+                      {/* 4-Stage Progress Stepper */}
                 {app.status !== 'REJECTED' && app.status !== 'CANCELLED' && (
                   <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="grid grid-cols-4 gap-2 text-center relative">
@@ -495,6 +507,7 @@ export default function MyApplications() {
                   </div>
                 )}
 
+                <Link to={`/dashboard/screening?applicationId=${app.id}`} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"><FileText size={14}/>{language==='th'?'ดูไฟล์ ผลตรวจ และแบบทดสอบ':'View files, feedback & questionnaire'}</Link>
                 {/* Attached Documents & Artifacts */}
                 {app.documents && app.documents.length > 0 && (
                   <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
@@ -544,7 +557,7 @@ export default function MyApplications() {
 
       {/* ── Commitment Confirmation Modal ───────────────────────────────────── */}
       {commitTargetApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="workspace-dialog fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
@@ -596,7 +609,7 @@ export default function MyApplications() {
 
       {/* ── Cancellation Request Modal ──────────────────────────────────────── */}
       {cancelTargetApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="workspace-dialog fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <form onSubmit={handleSubmitCancellationRequest} className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">

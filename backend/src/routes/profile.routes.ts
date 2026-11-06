@@ -29,13 +29,17 @@ router.get('/student/:id', authenticate, async (req: AuthRequest, res: Response)
     }
 
     // Role-based privacy: GPA is only visible to HR
-    const isAuthorizedForSensitiveData = callerRole === Role.COMPANY_HR;
+    const isOwner = student.userId === req.user!.userId;
+    const relatedApplication = callerRole === Role.COMPANY_HR ? await prisma.application.findFirst({
+      where: { studentId: student.id, jobPost: { company: { userId: req.user!.userId } } }, select: { id: true }
+    }) : null;
+    const isAuthorizedForSensitiveData = isOwner || !!relatedApplication;
 
     res.json({
       id: student.id,
       userId: student.userId,
       name: student.user.name,
-      email: student.user.email,
+      email: isAuthorizedForSensitiveData ? student.user.email : undefined,
       avatarUrl: student.avatarUrl || student.user.avatarUrl || null,
       studentId: isAuthorizedForSensitiveData ? student.studentId : undefined,
       university: student.university || null,

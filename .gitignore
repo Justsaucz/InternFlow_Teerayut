@@ -7,8 +7,11 @@ build/
 *.log
 uploads/
 backend/uploads/
+backend/private-uploads/
 backend/dist/
 frontend/dist/
 .claude/
 .windsurf/
+.agents/
 
+.vite-cache/

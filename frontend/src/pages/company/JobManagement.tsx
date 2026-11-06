@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+const JobQuestionnaire=lazy(()=>import('../../components/JobQuestionnaire'));
+import type { QuestionnaireDraft } from '../../components/JobQuestionnaire';
 import { 
   Plus, 
   Users, 
@@ -14,6 +16,8 @@ import { useToast } from '../../components/ui/Toast';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface Job {
+  readinessEnabled?:boolean;
+  screeningTemplate?:{onApply:boolean}|null;
   id: string;
   title: string;
   description: string;
@@ -35,6 +39,10 @@ interface Job {
 }
 
 export default function JobManagement() {
+  const [requireQuestionnaire,setRequireQuestionnaire]=useState(false);
+  const [creatingQuestionnaire,setCreatingQuestionnaire]=useState(false);
+  const [questionnaireDraft,setQuestionnaireDraft]=useState<QuestionnaireDraft|undefined>();
+  const [questionnaireJob,setQuestionnaireJob]=useState<Job|null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -85,6 +93,7 @@ export default function JobManagement() {
 
   const handleOpenCreate = () => {
     setEditingJobId(null);
+    setRequireQuestionnaire(false);setQuestionnaireDraft(undefined);
     setFormData({
       title: '',
       description: '',
@@ -104,7 +113,7 @@ export default function JobManagement() {
   };
 
   const handleOpenEdit = (job: Job) => {
-    setEditingJobId(job.id);
+    setEditingJobId(job.id);setRequireQuestionnaire(false);
     setFormData({
       title: job.title || '',
       description: job.description || '',
@@ -125,6 +134,7 @@ export default function JobManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(!editingJobId&&requireQuestionnaire){setShowModal(false);setCreatingQuestionnaire(true);return;}
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
@@ -160,6 +170,22 @@ export default function JobManagement() {
     }
   };
 
+  const publishWithQuestionnaire = async (questionnaire: QuestionnaireDraft) => {
+    const response=await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/jobs`,{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('token')}`,'Content-Type':'application/json'},body:JSON.stringify({...formData,questionnaire})});
+    const value=await response.json();if(!response.ok)throw Error(value.error||'Unable to publish the job and questionnaire.');
+    setCreatingQuestionnaire(false);setQuestionnaireDraft(undefined);setRequireQuestionnaire(false);setEditingJobId(null);
+    success(language==='th'?'เผยแพร่ประกาศพร้อมแบบทดสอบแล้ว':'Job and questionnaire published together.');void fetchJobs();
+  };
+
+  const saveAndEditQuestionnaire = async () => {
+    if(!editingJobId)return;setSaving(true);
+    try{
+      const response=await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/jobs/${editingJobId}`,{method:'PUT',headers:{Authorization:`Bearer ${localStorage.getItem('token')}`,'Content-Type':'application/json'},body:JSON.stringify(formData)});
+      const value=await response.json();if(!response.ok)throw Error(value.error||'Unable to save job details.');
+      setShowModal(false);setQuestionnaireJob(value);void fetchJobs();
+    }catch(error){showError(error instanceof Error?error.message:'Unable to save job details.');}finally{setSaving(false);}
+  };
+
   const handleDeleteJob = async (jobId: string) => {
     setDeletingId(jobId);
     try {
@@ -185,9 +211,9 @@ export default function JobManagement() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="workspace-page space-y-8 animate-in fade-in duration-200">
       {/* ── Top Header ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm">
+      <div className="workspace-page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4 bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
@@ -221,7 +247,7 @@ export default function JobManagement() {
       ) : (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
+            <table className="workspace-jobs-table min-w-full divide-y divide-slate-100 text-left">
               <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-6 py-4">Role & Requirements</th>
@@ -333,9 +359,11 @@ export default function JobManagement() {
         </div>
       )}
 
+      {creatingQuestionnaire&&<Suspense fallback={<div role="status">Loading…</div>}><JobQuestionnaire job={formData} draft={questionnaireDraft} onBack={setQuestionnaireDraft} onPublish={publishWithQuestionnaire} onClose={()=>{setCreatingQuestionnaire(false);setShowModal(true);}}/></Suspense>}
+      {questionnaireJob&&<Suspense fallback={<div role="status" className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center text-white">Loading…</div>}><JobQuestionnaire key={questionnaireJob.id} job={questionnaireJob} onClose={()=>{setQuestionnaireJob(null);if(editingJobId)setShowModal(true);void fetchJobs();}}/></Suspense>}
       {/* ── Create / Edit Job Modal ────────────────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="workspace-dialog fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 animate-in fade-in zoom-in-95 duration-200 my-8">
             <div className="px-7 py-5 bg-gradient-to-r from-slate-900 to-slate-950 text-white flex justify-between items-center sticky top-0 z-10">
               <div>
@@ -533,6 +561,10 @@ export default function JobManagement() {
                 </label>
               </div>
 
+              {!editingJobId&&<section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-2"><label className="flex items-start gap-3 text-sm font-semibold"><input type="checkbox" checked={requireQuestionnaire} onChange={e=>setRequireQuestionnaire(e.target.checked)} className="mt-1"/><span>{language==='th'?'ให้ผู้สมัครทำแบบทดสอบก่อนส่งใบสมัคร':'Require a questionnaire when applying'}</span></label><p className="text-xs leading-5 text-slate-600">{language==='th'?'หากเปิด จะไปตั้งคำถามในขั้นถัดไป ประกาศจะยังไม่เปิดรับจนกว่าจะบันทึกคำถามและเผยแพร่พร้อมกัน หากไม่ใช้ สามารถเผยแพร่ได้เลย':'When enabled, write or draft questions in the next step. The job stays unpublished until both are saved together. Otherwise, publish without a questionnaire.'}</p></section>}
+
+              {editingJobId&&<section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3"><p className="text-sm font-semibold">{language==='th'?'แบบทดสอบของประกาศนี้':'Questionnaire for this listing'}</p><p className="text-xs text-slate-600 leading-5">{language==='th'?'บันทึกรายละเอียดงานล่าสุดก่อนแก้คำถาม เพื่อให้ AI อ้างอิงบริบทที่ถูกต้อง แบบทดสอบที่ผู้สมัครส่งแล้วจะเก็บตามรุ่นเดิม':'Save the latest job details before editing questions so AI uses the correct context. Already submitted assessments retain their original version.'}</p><button type="button" disabled={saving} onClick={event=>{if(event.currentTarget.form?.reportValidity())void saveAndEditQuestionnaire();}} className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-900">{language==='th'?'บันทึกและแก้ไขแบบทดสอบ':'Save details & edit questionnaire'}</button></section>}
+
               {/* Submit Buttons */}
               <div className="pt-4 flex gap-3 border-t border-slate-100">
                 <button 
@@ -547,7 +579,7 @@ export default function JobManagement() {
                   disabled={saving}
                   className="flex-1 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-xl text-xs font-bold hover:from-primary-700 hover:to-indigo-700 shadow-md shadow-primary-500/20 transition-all disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingJobId ? 'Update Job Posting' : 'Publish Job Opening'}
+                  {saving ? 'Saving...' : editingJobId ? 'Update Job Posting' : requireQuestionnaire ? (language==='th'?'ถัดไป: ตั้งแบบทดสอบ':'Next: questionnaire') : 'Publish Job Opening'}
                 </button>
               </div>
             </form>
@@ -557,7 +589,7 @@ export default function JobManagement() {
 
       {/* ── Delete Confirmation Modal ──────────────────────────────────────── */}
       {jobToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="workspace-dialog fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">

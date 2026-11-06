@@ -1,0 +1,7 @@
+ALTER TABLE "JobPost" ADD COLUMN "readinessEnabled" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "readinessDeadline" TIMESTAMP(3), ADD COLUMN "readinessVersion" INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX "JobPost_readinessEnabled_readinessDeadline_idx" ON "JobPost"("readinessEnabled", "readinessDeadline");
+CREATE INDEX "Application_jobPostId_status_idx" ON "Application"("jobPostId",status);
+CREATE TABLE "ReadinessConfirmation" (id TEXT PRIMARY KEY, "applicationId" TEXT NOT NULL, "scheduleVersion" INTEGER NOT NULL, source TEXT NOT NULL, "confirmedById" TEXT NOT NULL, "confirmedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ReadinessConfirmation_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"(id) ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "ReadinessConfirmation_confirmedById_fkey" FOREIGN KEY ("confirmedById") REFERENCES "User"(id) ON DELETE RESTRICT ON UPDATE CASCADE);
+CREATE UNIQUE INDEX "ReadinessConfirmation_applicationId_scheduleVersion_key" ON "ReadinessConfirmation"("applicationId","scheduleVersion");
+CREATE TABLE "ReadinessNotice" (id TEXT PRIMARY KEY, "applicationId" TEXT NOT NULL, "scheduleVersion" INTEGER NOT NULL, kind TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ReadinessNotice_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"(id) ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE UNIQUE INDEX "ReadinessNotice_applicationId_scheduleVersion_kind_key" ON "ReadinessNotice"("applicationId","scheduleVersion",kind);

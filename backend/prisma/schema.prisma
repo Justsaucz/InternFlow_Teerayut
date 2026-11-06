@@ -37,6 +37,12 @@ model User {
   studentProfile StudentProfile?
   companyProfile CompanyProfile?
   documents      Document[]
+  passwordVersion Int @default(0)
+  emailVerifiedAt DateTime?
+  emailVerificationRequired Boolean @default(false)
+  accountTokens AccountToken[]
+  notifications Notification[]
+  readinessConfirmations ReadinessConfirmation[]
 }
 
 
@@ -104,6 +110,12 @@ model JobPost {
   updatedAt        DateTime       @updatedAt
   
   applications     Application[]
+  screeningTemplate ScreeningTemplate?
+  readinessEnabled Boolean @default(false)
+  readinessDeadline DateTime?
+  readinessVersion Int @default(0)
+
+  @@index([readinessEnabled, readinessDeadline])
 }
 
 model Application {
@@ -114,6 +126,11 @@ model Application {
   student        StudentProfile    @relation(fields: [studentId], references: [id])
   
   status             ApplicationStatus @default(PENDING)
+  // Individual start dates and confirmation deadlines; job-level fields are legacy only.
+  readinessEnabled   Boolean @default(false)
+  readinessStartDate DateTime?
+  readinessDeadline  DateTime?
+  readinessVersion   Int @default(0)
   coverLetter        String?
   cancellationReason String?
   
@@ -124,8 +141,16 @@ model Application {
   weeklyLogs     WeeklyLog[]
   dailyLogs      DailyLog[]
   evaluation     InternshipEvaluation?
+  evidenceEntries EvidenceEntry[]
+  screeningAssessment ScreeningAssessment?
+  portfolioReviews PortfolioReview[]
+  readinessConfirmations ReadinessConfirmation[]
+  readinessNotices ReadinessNotice[]
+
+  @@index([jobPostId, status])
 
   @@unique([studentId, jobPostId])
+  @@index([readinessEnabled, readinessDeadline])
 }
 
 model Document {
@@ -138,6 +163,9 @@ model Document {
   title         String
   fileUrl       String
   type          String       // e.g., "CV", "TRANSCRIPT", "REPORT"
+  mimeType String?
+  byteSize Int?
+  evidenceEntries EvidenceEntry[]
   
   createdAt     DateTime     @default(now())
 }
@@ -223,4 +251,131 @@ model InternshipEvaluation {
   
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
+}
+
+model AccountToken {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose String
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, purpose])
+}
+
+model Notification {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind String
+  title String
+  message String
+  href String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+model EvidenceEntry {
+  id String @id @default(uuid())
+  applicationId String
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  projectKey String
+  previousId String? @unique
+  version Int @default(1)
+  title String
+  summary String
+  contribution String
+  skills String[]
+  evidenceDate DateTime
+  linkUrl String?
+  documentId String?
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  fileSha256 String?
+  aiConsent Boolean @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  @@unique([applicationId, projectKey, version])
+  @@index([applicationId, createdAt])
+}
+
+model ApplicationPreparation {
+  id String @id @default(uuid())
+  userId String
+  jobPostId String
+  documentIds String[]
+  hashes Json
+  report Json
+  contribution String
+  skills String
+  model String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+
+model ScreeningTemplate {
+  onApply Boolean @default(false)
+  id String @id @default(uuid())
+  jobPostId String @unique
+  jobPost JobPost @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  title String
+  questions Json
+  version Int @default(1)
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ScreeningAssessment {
+  id String @id @default(uuid())
+  applicationId String @unique
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  title String
+  templateVersion Int
+  questions Json
+  answers Json?
+  status String @default("ASSIGNED")
+  assignedBy String
+  dueAt DateTime
+  submittedAt DateTime?
+  review Json?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model PortfolioReview {
+  id String @id @default(uuid())
+  applicationId String
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  source String
+  model String?
+  report Json
+  evidenceSnapshot Json
+  createdBy String
+  createdAt DateTime @default(now())
+  @@index([applicationId, createdAt])
+}
+
+model ReadinessConfirmation {
+  id String @id @default(uuid())
+  applicationId String
+  application Application @relation(fields:[applicationId], references:[id], onDelete:Cascade)
+  scheduleVersion Int
+  source String
+  confirmedById String
+  confirmedBy User @relation(fields:[confirmedById], references:[id])
+  confirmedAt DateTime @default(now())
+  @@unique([applicationId, scheduleVersion])
+}
+model ReadinessNotice {
+  id String @id @default(uuid())
+  applicationId String
+  application Application @relation(fields:[applicationId], references:[id], onDelete:Cascade)
+  scheduleVersion Int
+  kind String
+  createdAt DateTime @default(now())
+  @@unique([applicationId, scheduleVersion, kind])
 }

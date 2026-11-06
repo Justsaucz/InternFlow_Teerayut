@@ -1,3 +1,4 @@
+import LogbookFileLink from '../../components/LogbookFileLink';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -59,7 +60,7 @@ export default function StudentLogbook() {
 
   // Form State for Daily Log
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [logDate, setLogDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState<string>(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
   const [weekNumber, setWeekNumber] = useState<number>(1);
   const [hoursWorked, setHoursWorked] = useState<number>(8.0);
   const [workModality, setWorkModality] = useState<'ON_SITE' | 'REMOTE' | 'HYBRID'>('ON_SITE');
@@ -69,7 +70,7 @@ export default function StudentLogbook() {
   const [learnings, setLearnings] = useState<string>('');
   const [attachmentLinks, setAttachmentLinks] = useState<AttachmentLink[]>([]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const isSelectedDateBackdated = logDate < todayStr;
 
   useEffect(() => {
@@ -209,8 +210,8 @@ export default function StudentLogbook() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      showError(language === 'th' ? 'ขนาดไฟล์ต้องไม่เกิน 10MB' : 'File size must be under 10MB');
+    if (file.size > 5 * 1024 * 1024) {
+      showError(language === 'th' ? 'ขนาดไฟล์ต้องไม่เกิน 5MB' : 'File size must be under 5MB');
       return;
     }
 
@@ -220,8 +221,9 @@ export default function StudentLogbook() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'REPORT');
+      formData.append('applicationId', activePlacement?.id || '');
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/upload`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/upload/logbook`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData
@@ -234,7 +236,7 @@ export default function StudentLogbook() {
           title: `[File] ${file.name}`,
           url: fileUrl
         };
-        setAttachmentLinks([...attachmentLinks, newAttachment]);
+        setAttachmentLinks(previous => [...previous, newAttachment]);
         success(language === 'th' ? `อัปโหลด ${file.name} สำเร็จ!` : `Uploaded ${file.name} successfully!`);
       } else {
         const err = await res.json();
@@ -250,6 +252,7 @@ export default function StudentLogbook() {
 
   const handleCreateOrUpdateLog = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploadingFile || submitting) return;
     setSubmitting(true);
 
     const validActual = actualDeliverables.map((s) => s.trim()).filter((s) => s.length > 0);
@@ -360,9 +363,9 @@ export default function StudentLogbook() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="workspace-page max-w-7xl mx-auto space-y-8 animate-in fade-in duration-200">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="workspace-page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-primary-600 bg-primary-50 px-2.5 py-0.5 rounded-full border border-primary-100">
@@ -571,7 +574,7 @@ export default function StudentLogbook() {
                       {week.mentorApproved ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          {t.common.status.approved} {week.mentorRating ? `(${week.mentorRating} ★)` : ''}
+                          {t.common.status.approved} {week.mentorRating ? `(${language === 'th' ? 'เฉลี่ยรายวัน' : 'Daily average'} ${week.mentorRating}/5)` : ''}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
@@ -597,7 +600,7 @@ export default function StudentLogbook() {
                       </span>
                       {week.mentorRating && (
                         <span className="font-black text-amber-600">
-                          {'★'.repeat(week.mentorRating)} ({week.mentorRating}/5)
+                          {language === 'th' ? 'เฉลี่ยคะแนนรายวัน' : 'Average daily rating'} ({week.mentorRating}/5)
                         </span>
                       )}
                     </div>
@@ -663,7 +666,7 @@ export default function StudentLogbook() {
                                   </span>
                                 )}
 
-                                {!log.mentorApproved && (
+                                {activePlacement && !log.mentorApproved && (
                                   <button
                                     onClick={() => handleOpenEdit(log)}
                                     className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
@@ -673,7 +676,7 @@ export default function StudentLogbook() {
                                   </button>
                                 )}
 
-                                {!log.mentorApproved && (
+                                {activePlacement && !log.mentorApproved && (
                                   <button
                                     onClick={() => handleDeleteLog(log.id)}
                                     disabled={deletingId === log.id}
@@ -738,16 +741,14 @@ export default function StudentLogbook() {
                                   {linkItems.map((link, idx) => {
                                     const isFile = isFileAttachment(link);
                                     return (
-                                      <a
-                                        key={idx}
-                                        href={link.url}
+                                      <LogbookFileLink key={idx} href={link.url}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-50 hover:bg-primary-100 border border-primary-200 text-xs font-bold text-primary-700 shadow-2xs transition-all"
                                       >
                                         {isFile ? <FileText className="w-3.5 h-3.5 text-indigo-600" /> : <ExternalLink className="w-3.5 h-3.5" />}
                                         {link.title || t.logbook.viewArtifact}
-                                      </a>
+                                      </LogbookFileLink>
                                     );
                                   })}
                                 </div>
@@ -755,7 +756,7 @@ export default function StudentLogbook() {
                             )}
 
                             {/* Individual Day Mentor Feedback */}
-                            {log.mentorFeedback && (
+                            {(log.mentorFeedback || log.mentorRating) && (
                               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                                 <span className="font-bold text-slate-700">{t.logbook.mentorReview} </span>
                                 <span className="italic text-slate-600">"{log.mentorFeedback}"</span>
@@ -786,7 +787,7 @@ export default function StudentLogbook() {
 
       {/* ── Add / Edit Daily Log Modal ─────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="workspace-dialog fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 my-8 animate-in fade-in zoom-in-95 duration-200">
             <div className="px-7 py-5 bg-gradient-to-r from-slate-900 to-slate-950 text-white flex justify-between items-center">
               <div>
@@ -871,7 +872,7 @@ export default function StudentLogbook() {
                       value={hoursWorked}
                       onChange={(e) => setHoursWorked(Number(e.target.value))}
                     />
-                    <div className="flex gap-1.5">
+                    <div className="log-hours-presets flex gap-1.5">
                       {[4, 6, 8, 10].map((h) => (
                         <button
                           key={h}
@@ -897,7 +898,7 @@ export default function StudentLogbook() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     {t.logbook.workModalityLabel}
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="log-modality-options grid grid-cols-3 gap-2">
                     {[
                       { id: 'ON_SITE', label: t.common.modalities.onSite },
                       { id: 'REMOTE', label: t.common.modalities.remote },
@@ -1081,7 +1082,7 @@ export default function StudentLogbook() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || uploadingFile}
                   className="flex-1 px-5 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-primary-700 hover:to-indigo-700 shadow-md shadow-primary-500/20 cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? t.common.saving : editingId ? t.logbook.updateDailyLogBtn : t.logbook.saveDailyLogBtn}
@@ -1094,7 +1095,7 @@ export default function StudentLogbook() {
 
       {/* ── Official Report Modal ─────────────────────────────────────────── */}
       {showReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto print:p-0 print:bg-white">
+        <div className="workspace-dialog fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto print:p-0 print:bg-white">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 my-8 print:shadow-none print:border-none print:m-0">
             {/* Action Bar (Hidden in Print) */}
             <div className="px-7 py-4 bg-slate-900 text-white flex justify-between items-center print:hidden">
@@ -1117,7 +1118,7 @@ export default function StudentLogbook() {
             </div>
 
             {/* Printable Document Body */}
-            <div className="p-10 space-y-8 bg-white text-slate-900 font-sans">
+            <div className="internflow-report p-5 sm:p-10 space-y-8 bg-white text-slate-900 font-sans">
               <div className="border-b-2 border-slate-900 pb-6 text-center space-y-1">
                 <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900">
                   InternFlow Performance Report
@@ -1141,7 +1142,7 @@ export default function StudentLogbook() {
                 <div className="space-y-1.5">
                   <p><span className="font-bold text-slate-500">{t.logbook.hostOrg}</span> <span className="font-extrabold">{activePlacement?.jobPost?.company?.companyName}</span></p>
                   <p><span className="font-bold text-slate-500">{t.logbook.positionTitle}</span> {activePlacement?.jobPost?.title}</p>
-                  <p><span className="font-bold text-slate-500">{t.logbook.totalHoursCompleted}</span> <span className="font-extrabold text-emerald-700">{totalHours} {t.common.hours}</span></p>
+                  <p><span className="font-bold text-slate-500">{t.logbook.totalHoursCompleted}</span> <span className="font-extrabold text-emerald-700">{approvedHours} {t.common.hours}</span></p>
                 </div>
               </div>
 

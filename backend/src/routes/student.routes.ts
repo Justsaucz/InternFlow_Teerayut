@@ -58,6 +58,12 @@ router.put('/profile', authenticate, authorize([Role.STUDENT]), async (req: Auth
     }
 
     const { name, studentId, major, faculty, university, year, gpa, bio, skills, avatarUrl } = req.body;
+    const invalidText = [name, studentId, major, faculty, university, bio, avatarUrl].some(value => value != null && typeof value !== 'string');
+    const invalidGpa = gpa !== undefined && gpa !== null && gpa !== '' && (!Number.isFinite(Number(gpa)) || Number(gpa) < 0 || Number(gpa) > 4);
+    const invalidYear = year !== undefined && (!Number.isInteger(Number(year)) || Number(year) < 1 || Number(year) > 6);
+    if (invalidText || invalidGpa || invalidYear || (skills !== undefined && (!Array.isArray(skills) || skills.some(skill => typeof skill !== 'string')))) {
+      res.status(400).json({ error: 'Invalid profile fields, GPA (0–4), or academic year.' }); return;
+    }
 
     if (name || avatarUrl !== undefined) {
       await prisma.user.update({
@@ -78,7 +84,7 @@ router.put('/profile', authenticate, authorize([Role.STUDENT]), async (req: Auth
         faculty: faculty || '',
         university: university || '',
         year: year ? parseInt(year) : 1,
-        gpa: gpa !== undefined && gpa !== '' ? parseFloat(gpa) : null,
+        gpa: gpa !== undefined && gpa !== null && gpa !== '' ? Number(gpa) : null,
         bio: bio || null,
         skills: Array.isArray(skills) ? skills : [],
         avatarUrl: avatarUrl || null
@@ -89,7 +95,7 @@ router.put('/profile', authenticate, authorize([Role.STUDENT]), async (req: Auth
         faculty: faculty !== undefined ? faculty : undefined,
         university: university !== undefined ? university : undefined,
         year: year ? parseInt(year) : undefined,
-        gpa: gpa !== undefined && gpa !== '' ? parseFloat(gpa) : (gpa === '' ? null : undefined),
+        gpa: gpa !== undefined && gpa !== null && gpa !== '' ? Number(gpa) : (gpa === '' || gpa === null ? null : undefined),
         bio: bio !== undefined ? bio : undefined,
         skills: Array.isArray(skills) ? skills : undefined,
         avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined

@@ -25,7 +25,7 @@ export default function StudentProfile() {
   const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const { success, error: showError } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -171,7 +171,7 @@ export default function StudentProfile() {
   const currentAvatar = localAvatarPreview || (editing ? formData.avatarUrl : (profile.avatarUrl || profile.user.avatarUrl));
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="workspace-page workspace-profile max-w-4xl mx-auto space-y-6">
       {/* Hidden File Input for Avatar */}
       <input 
         type="file" 
@@ -182,7 +182,7 @@ export default function StudentProfile() {
       />
 
       {/* Page Title & Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="workspace-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 tracking-tight font-heading">{t.profile.title}</h2>
           <p className="text-sm text-gray-500 mt-0.5">{t.profile.subtitle}</p>
@@ -521,7 +521,7 @@ export default function StudentProfile() {
                     <span className="text-xs font-bold uppercase tracking-wider text-primary-700">Internship Tip</span>
                   </div>
                   <p className="text-xs text-primary-800/80 leading-relaxed">
-                    Students who add their major, GPA, and 3+ skills receive up to <strong>2.5x more interview invitations</strong> from partner companies.
+                    {language === 'th' ? 'เพิ่มสาขาวิชา ข้อมูลการศึกษา และทักษะ เพื่อให้บริษัทพิจารณาคุณสมบัติได้ครบถ้วน ข้อมูลผลการเรียนยังเป็นข้อมูลที่คุณระบุ' : 'Add your major, academic details, and skills to help employers review your qualifications. Academic details are currently self-reported.'}
                   </p>
                 </div>
               </div>

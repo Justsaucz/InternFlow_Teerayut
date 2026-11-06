@@ -150,7 +150,7 @@ export default function CompanyProfile() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+    <div className="workspace-page workspace-profile max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* Hidden File Input */}
       <input 
         type="file" 
@@ -161,7 +161,7 @@ export default function CompanyProfile() {
       />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="workspace-page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
