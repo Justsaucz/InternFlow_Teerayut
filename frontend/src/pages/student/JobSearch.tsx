@@ -16,7 +16,6 @@ import {
   Phone,
   ExternalLink,
   MessageSquare,
-  Megaphone,
 } from 'lucide-react';
 const ApplicationFlow=lazy(()=>import('../../components/ApplicationFlow'));
 import PublicProfileModal from '../../components/modals/PublicProfileModal';
@@ -154,7 +153,6 @@ export default function JobSearch() {
         </div>
       </div>
 
-      {!loading && jobs.length > 0 && <p className="ads-demo-list-disclosure"><Megaphone size={14} aria-hidden="true" />{language === 'th' ? 'ป้าย ADS · ตัวอย่าง แสดงรูปแบบประกาศโปรโมต ยังไม่มีการชำระเงินหรือซื้อโปรโมต' : 'ADS · Demo labels preview promoted placements. No payment or promotion purchase has been made.'}</p>}
 
       {/* ── Job Cards Grid ─────────────────────────────────────────────────── */}
       {loading ? (

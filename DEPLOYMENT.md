@@ -1,4 +1,4 @@
-# InternFlow free hosted demo
+# InternFlow live application
 
 Frontend: https://internflow-teerayut-justsaucz.eloquentorangutan2.chatgpt.site
 
@@ -6,43 +6,36 @@ API: https://internflow-teerayut-api-lrov.onrender.com
 
 ## Hosting
 
-- The original source at D:\Work2\internFlow_teerayut\InternFlow was not modified.
-- GitHub branch: deploy/sites-render.
-- Sites project: appgprj_6af1b3df014081918df0c96de156ccc0. Frontend source commit: c81430b79d53af84b02be01edf9a0774c83bbe31 in the separate Sites source repository.
-- Sites audience remains owner-private/custom. Add approved viewers to share privately. The private frontend is not anonymously accessible.
+- Original source in D:\Work2\internFlow_teerayut\InternFlow remains unchanged. Deployment source is on GitHub branch deploy/sites-render.
+- Sites project: appgprj_6af1b3df014081918df0c96de156ccc0. Its audience remains owner-private/custom. Sharing with other people requires approved viewers or an explicit audience change.
 - Render workspace: tea-dbor56h5efls73eoq310. Service: srv-dborm1ec6qcc738i0pa0. Plan: Free, Singapore. Auto-deploy is disabled.
-- Render Blueprint: exs-dborfb95efls73epj970. First successful deployment: dep-dborm2ec6qcc738i0s50.
-- Neon project: dawn-haze-66672812. Database: internflow. Plan: Free, Singapore. The app does not use the 30-day Render database trial.
-- Credentials are runtime settings. No connection URL, JWT secret or service token is committed.
+- Neon project: dawn-haze-66672812, database internflow, main branch br-snowy-flower-aztdr1m6. Plan: Free, Singapore, with no 30-day Render database trial.
+- Keep secrets in runtime settings. Do not commit DATABASE_URL, JWT_SECRET or GEMINI_API_KEY.
 
-## Demo
+## Real accounts and data
 
-The login page offers Student, Intern and HR account buttons. Shared sample password: InternFlowDemo2026!
+There is no demo banner, shared-account login control or automatic sample seeding. The three previous sample jobs were closed and shared accounts revoked; no real user data was deleted. New companies create their own listings and students create their own accounts.
 
-- student@internflow.example.test: apply to internships.
-- intern@internflow.example.test: committed placement, logbooks and evaluations.
-- hr@internflow.example.test: jobs, application review and evaluations.
+NEON_AUTH_URL enables managed account signup, login, one-time email verification codes, password-reset codes, and logout. Signup creates an application profile for the authenticated Neon identity. Email ownership is required. Each application token carries a managed session; middleware verifies that session, local account version and role on protected requests. Password resets revoke managed sessions and advance the application password version.
 
-These are shared synthetic accounts. Do not enter personal data. Idempotent startup seeding never deletes or resets records; the original destructive seed script is not used.
+Neon's shared email service delivers verification and reset codes within its free limits. Dedicated sender branding and higher email volume would require separate SMTP configuration. OTPs are entered on the site's verification/reset pages. No email passwords or OTP values are logged.
 
-DEMO_MODE=true permits trial registration without sending verification mail. Such addresses are not verified. Normal production verification remains unchanged when the flag is disabled. Outbound account email and AI functions are not configured for this free demo.
+The existing Gemini key and configured model are supplied only to the API runtime. AI document processing still requires the application's explicit user consent and is subject to the Google project's quota. Manual review remains available when the AI quota is exhausted.
 
-FILE_STORAGE=database stores attachments in PostgreSQL rather than the temporary Render filesystem. Existing document/logbook authorization protects private files. Demo limits: 100 MB of stored files total, 5 MB per file.
+FILE_STORAGE=database preserves files across Render restarts. Existing ownership and company authorization protect private files. The current application cap is 100 MB of stored uploads, 5 MB per file. No ephemeral Render disk is used for hosted uploads.
 
-The frontend requests noindex/nofollow/noarchive. Search-indexing preferences are separate from access control.
+Recommended-job cards select actual open job listings; they do not represent paid sponsorship purchases. The original source contained a visual sponsorship preview, not a payment processor.
 
-## Verification
+## Validation
 
-- Frontend TypeScript and Vite production build passed.
-- Backend TypeScript compilation passed.
-- Render built the Docker image, applied migrations and reported live status.
-- Live login passed for all three sample roles; three sample jobs were returned.
-- A synthetic PDF was uploaded to PostgreSQL and downloaded byte-for-byte by its owner and the associated HR account.
-- Anonymous, unrelated-user and direct private-URL requests were denied.
-- Initial database size: approximately 8 MB.
-- Browser automation could not attach to an in-app browser tab; visual browser QA is unverified.
+- Frontend TypeScript/Vite production build and backend TypeScript compilation passed.
+- On the isolated QA database/auth branch br-little-rain-azao9g4y, tested real account creation, rejection of unverified login, verified login, profiles, role enforcement, job publishing, application/acceptance/commit, logbook approval, evaluation/report, notifications and managed session revocation on logout.
+- Only the isolated QA branch manually marked fixture emails verified. The main branch requires actual email verification and was never relaxed.
+- Gemini returned the expected structured JSON using the existing key and configured model.
+- Previously verified byte-for-byte file upload/download, owner/company access and denial to unrelated/anonymous visitors.
+- The actual email delivery step must be confirmed by a recipient checking their inbox during signup; no personal recipient was used for automated tests.
+- Visual browser automation is unavailable in this session; deployed HTML, assets and SPA routes are checked over HTTP.
 
-## Free limits
+## Limits
 
-Render Free can sleep when idle, making the first request slow. Neon Free has resource quotas but no 30-day trial expiry. Do not upgrade plans without an owner request.
-
+Remain on Free plans unless explicitly instructed otherwise. Render Free can sleep when idle. Neon and Google enforce resource/API quotas. No provider upgrade or payment service was enabled.

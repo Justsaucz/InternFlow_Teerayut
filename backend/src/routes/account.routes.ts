@@ -5,6 +5,7 @@ import prisma from '../lib/prisma';
 import { HttpError, handleRouteError } from '../lib/workflow';
 import { mailConfigured, sendAccountLink, tokenHash } from '../lib/accountMail';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { managedAuthEnabled, authRequest } from '../lib/managedAuth';
 
 const router = Router();
 const limit = rateLimit({ windowMs: 15 * 60000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false,
@@ -19,6 +20,12 @@ for (const [route, purpose] of [['/forgot-password', 'RESET_PASSWORD'], ['/resen
     const started = Date.now();
     try {
       const address = email(req.body.email);
+      if(managedAuthEnabled()) {
+        const user=await prisma.user.findUnique({where:{email:address}});
+        if(user && (purpose==='RESET_PASSWORD'||!user.emailVerifiedAt))await authRequest(purpose==='RESET_PASSWORD'?'/email-otp/request-password-reset':'/email-otp/send-verification-otp',purpose==='RESET_PASSWORD'?{email:address}:{email:address,type:'email-verification'});
+        await new Promise(resolve=>setTimeout(resolve,Math.max(0,650-(Date.now()-started))));
+        res.json({...generic,verificationMethod:'otp'});return;
+      }
       if (!mailConfigured()) throw new HttpError(503, 'Email delivery is not configured. Please contact the administrator.');
       const user = await prisma.user.findFirst({ where: { email: { equals: address, mode: 'insensitive' } } });
       if (user && (purpose === 'RESET_PASSWORD' || !user.emailVerifiedAt)) {
@@ -32,6 +39,14 @@ for (const [route, purpose] of [['/forgot-password', 'RESET_PASSWORD'], ['/resen
 router.post('/reset-password', limit, async (req: Request, res: Response) => {
   try {
     const { token, password } = req.body;
+    if(managedAuthEnabled()) {
+      const address=email(req.body.email);
+      if(typeof req.body.otp!=='string'||!/^\d{6,8}$/.test(req.body.otp))throw new HttpError(400,'Enter the verification code from your email.');
+      if(typeof password!=='string'||password.length<8||Buffer.byteLength(password,'utf8')>72)throw new HttpError(400,'Use at least 8 characters and at most 72 UTF-8 bytes.');
+      await authRequest('/email-otp/reset-password',{email:address,otp:req.body.otp,password});
+      await prisma.user.updateMany({where:{email:address},data:{passwordVersion:{increment:1}}});
+      res.json({message:'Password changed. Please sign in again.'});return;
+    }
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(400, 'This password reset link is invalid or expired.');
     if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) throw new HttpError(400, 'Use at least 8 characters and no more than 72 UTF-8 bytes.');
     const hashed = await bcrypt.hash(password, 12);
@@ -49,6 +64,14 @@ router.post('/reset-password', limit, async (req: Request, res: Response) => {
 router.post('/verify-email', limit, async (req: Request, res: Response) => {
   try {
     const token = req.body.token;
+    if(managedAuthEnabled()) {
+      const address=email(req.body.email);
+      if(typeof req.body.otp!=='string'||!/^\d{6,8}$/.test(req.body.otp))throw new HttpError(400,'Enter the verification code from your email.');
+      const {data}=await authRequest('/email-otp/verify-email',{email:address,otp:req.body.otp});
+      if(data?.status!==true || !data.user || data.user.email.toLowerCase()!==address || data.user.emailVerified!==true)throw new HttpError(400,'Email verification could not be confirmed.');
+      await prisma.user.updateMany({where:{email:address},data:{emailVerifiedAt:new Date()}});
+      res.json({message:'Email verified. You can now sign in.'});return;
+    }
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(400, 'This verification link is invalid or expired.');
     await prisma.$transaction(async tx => {
       const record = await tx.accountToken.findUnique({ where: { tokenHash: tokenHash(token) } });

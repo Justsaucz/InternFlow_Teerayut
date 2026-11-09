@@ -22,6 +22,8 @@ services:
       - key: FRONTEND_URL
         value: https://internflow-teerayut-justsaucz.eloquentorangutan2.chatgpt.site
       - key: DEMO_MODE
-        value: "true"
+        value: "false"
+      - key: NEON_AUTH_URL
+        value: https://ep-ancient-forest-az4611b3.neonauth.c-3.ap-southeast-1.aws.neon.tech/internflow/auth
       - key: FILE_STORAGE
         value: database

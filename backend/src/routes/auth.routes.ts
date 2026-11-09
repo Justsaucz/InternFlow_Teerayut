@@ -5,6 +5,8 @@ import prisma from '../lib/prisma';
 import { Role } from '@prisma/client';
 import { handleRouteError, HttpError } from '../lib/workflow';
 import { mailConfigured, sendAccountLink } from '../lib/accountMail';
+import { managedAuthEnabled, registerManagedAccount, signInManagedAccount, authRequest } from '../lib/managedAuth';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -20,6 +22,10 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    if(managedAuthEnabled()) {
+      const user=await registerManagedAccount({email:cleanEmail,password,name:name.trim(),role});
+      res.status(201).json({userId:user.id,verificationRequired:true,verificationMethod:'otp',emailSent:true,message:'Check your inbox for a verification code.'});return;
+    }
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: cleanEmail, mode: 'insensitive' } }
     });
@@ -28,24 +34,19 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const demo = process.env.DEMO_MODE === 'true';
-    if (!demo && !mailConfigured()) throw new HttpError(503, 'Email delivery must be configured before registering new accounts.');
+    if (!mailConfigured()) throw new HttpError(503, 'Email delivery must be configured before registering new accounts.');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Nested writes keep account and profile creation atomic.
     const user = await prisma.user.create({
       data: {
-        email: cleanEmail, password: hashedPassword, name: name.trim(), role, emailVerificationRequired: !demo,
+        email: cleanEmail, password: hashedPassword, name: name.trim(), role, emailVerificationRequired: true,
         ...(role === Role.STUDENT ? {
           studentProfile: { create: { studentId: '', major: '', faculty: '', year: 1, skills: [] } }
         } : { companyProfile: { create: { companyName: name.trim(), industry: '' } } })
       }
     });
 
-    if (demo) {
-      res.status(201).json({ message: 'Demo account created. Email is not verified in this trial.', userId: user.id, verificationRequired: false, emailSent: false });
-      return;
-    }
     let emailSent = true;
     try { await sendAccountLink(user, 'VERIFY_EMAIL'); } catch { emailSent = false; console.error('Verification email delivery failed. Use resend after fixing SMTP.'); }
     res.status(201).json({ message: 'Account created. Verify your email before signing in.', userId: user.id, verificationRequired: true, emailSent });
@@ -64,6 +65,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
 
     const cleanEmail = email.trim();
+    if(managedAuthEnabled()) {
+      const {user,session}=await signInManagedAccount(cleanEmail,password);
+      const token=jwt.sign({userId:user.id,role:user.role,passwordVersion:user.passwordVersion,neonSession:session},process.env.JWT_SECRET!,{expiresIn:'24h'});
+      res.json({token,user:{id:user.id,email:user.email,name:user.name,role:user.role}});return;
+    }
     const user = await prisma.user.findFirst({
       where: {
         email: { equals: cleanEmail, mode: 'insensitive' }
@@ -99,9 +105,12 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    handleRouteError(res,error,'Unable to sign in.');
   }
 });
 
+router.post('/logout',authenticate,async(req:AuthRequest,res:Response)=>{
+  try{if(managedAuthEnabled()&&req.user?.neonSession)await authRequest('/sign-out',{},req.user.neonSession);res.json({success:true});}
+  catch(error){handleRouteError(res,error,'Unable to sign out.');}
+});
 export default router;

@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { databaseFiles, readStoredUpload } from './lib/fileStorage';
-import { seedDemo } from './lib/seedDemo';
 
 dotenv.config();
 
@@ -62,7 +61,7 @@ app.use('/api/readiness', readinessRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/profile', profileRoutes);
 
-seedDemo().then(() => backfillLogbookAttachments()).then(() => {
+backfillLogbookAttachments().then(() => {
   if(process.env.READINESS_PROCESSOR_DISABLED !== 'true') startReadinessNotices();
   app.listen(PORT, () => { console.log(`Server is running on http://localhost:${PORT}`); });
 }).catch(() => { console.error('Private logbook metadata could not be initialized. Server not started.'); process.exit(1); });

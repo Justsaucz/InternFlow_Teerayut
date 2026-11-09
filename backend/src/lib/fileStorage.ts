@@ -35,7 +35,7 @@ export const databaseStorage = {
           // Serialize quota checks so simultaneous uploads cannot exceed it.
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(29061109)`;
           const usage = await tx.$queryRaw<{total: bigint}[]>`SELECT COALESCE(SUM(octet_length("bytes")), 0)::bigint AS total FROM "StoredUpload"`;
-          if (Number(usage[0].total) + size > 100 * 1024 * 1024) throw new HttpError(413, 'The demo file storage limit (100MB) has been reached.');
+          if (Number(usage[0].total) + size > 100 * 1024 * 1024) throw new HttpError(413, 'The file storage limit (100MB) has been reached. Please contact the administrator.');
           await tx.$executeRaw`INSERT INTO "StoredUpload" ("fileKey", "bytes", "mimeType") VALUES (${key}, ${bytes}, ${file.mimetype})`;
         });
         callback(null, { filename, size, path: key });

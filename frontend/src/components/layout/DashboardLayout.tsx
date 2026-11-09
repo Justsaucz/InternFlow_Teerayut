@@ -78,6 +78,8 @@ export default function DashboardLayout() {
   if (!user) return null;
 
   const handleLogout = () => {
+    const token=localStorage.getItem('token');
+    if(token)void fetch((import.meta.env.VITE_API_URL||'http://localhost:4000')+'/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+token}}).catch(()=>{});
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
