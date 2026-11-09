@@ -176,7 +176,7 @@ export default function CompanyApplicants() {
             const status = statusMap[app.status] || { label: app.status, color: 'bg-gray-100 text-gray-800' };
 
             return (
-              <div key={app.id} className="bg-white min-w-0 p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div key={app.id} data-application-id={app.id} className="bg-white min-w-0 p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
                     <button

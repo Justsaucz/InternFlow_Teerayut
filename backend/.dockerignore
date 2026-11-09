@@ -1,6 +1,10 @@
 node_modules
-npm-debug.log
-.env
-.git
-.gitignore
 dist
+.env
+.env.*
+!.env.example
+uploads
+private-uploads
+tests
+.agents
+*.log
