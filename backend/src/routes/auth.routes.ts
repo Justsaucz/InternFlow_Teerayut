@@ -28,19 +28,24 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!mailConfigured()) throw new HttpError(503, 'Email delivery must be configured before registering new accounts.');
+    const demo = process.env.DEMO_MODE === 'true';
+    if (!demo && !mailConfigured()) throw new HttpError(503, 'Email delivery must be configured before registering new accounts.');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Nested writes keep account and profile creation atomic.
     const user = await prisma.user.create({
       data: {
-        email: cleanEmail, password: hashedPassword, name: name.trim(), role, emailVerificationRequired: true,
+        email: cleanEmail, password: hashedPassword, name: name.trim(), role, emailVerificationRequired: !demo,
         ...(role === Role.STUDENT ? {
           studentProfile: { create: { studentId: '', major: '', faculty: '', year: 1, skills: [] } }
         } : { companyProfile: { create: { companyName: name.trim(), industry: '' } } })
       }
     });
 
+    if (demo) {
+      res.status(201).json({ message: 'Demo account created. Email is not verified in this trial.', userId: user.id, verificationRequired: false, emailSent: false });
+      return;
+    }
     let emailSent = true;
     try { await sendAccountLink(user, 'VERIFY_EMAIL'); } catch { emailSent = false; console.error('Verification email delivery failed. Use resend after fixing SMTP.'); }
     res.status(201).json({ message: 'Account created. Verify your email before signing in.', userId: user.id, verificationRequired: true, emailSent });

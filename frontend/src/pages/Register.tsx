@@ -51,7 +51,7 @@ export default function Register() {
       if (res.ok) {
         setSuccess(true);
         setTimeout(() => {
-          navigate('/verify-email?email=' + encodeURIComponent(email));
+          navigate(data.verificationRequired === false ? '/login' : '/verify-email?email=' + encodeURIComponent(email));
         }, 1500);
       } else {
         setError(data.error || 'Registration failed. Please check your information.');

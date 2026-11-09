@@ -5,50 +5,23 @@ services:
     runtime: docker
     branch: deploy/sites-render
     region: singapore
-    plan: 0.5c-512mb
+    plan: free
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /api/health
     autoDeployTrigger: off
-    disk:
-      name: internflow-attachments
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "10000"
       - key: DATABASE_URL
-        fromDatabase:
-          name: internflow-teerayut-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
         value: https://internflow-teerayut-justsaucz.eloquentorangutan2.chatgpt.site
-      - key: UPLOAD_DIR
-        value: /var/data/uploads
-      - key: PRIVATE_UPLOAD_DIR
-        value: /var/data/private-uploads
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_SECURE
-        value: "false"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: MAIL_FROM
-        sync: false
-databases:
-  - name: internflow-teerayut-db
-    region: singapore
-    plan: 0.1c-256mb
-    postgresMajorVersion: "16"
-    diskSizeGB: 1
-    databaseName: internflow
-    user: internflow
-    ipAllowList: []
+      - key: DEMO_MODE
+        value: "true"
+      - key: FILE_STORAGE
+        value: database

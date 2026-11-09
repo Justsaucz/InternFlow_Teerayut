@@ -126,6 +126,11 @@ export default function Login() {
           )}
 
           {/* Form */}
+          {import.meta.env.VITE_DEMO_MODE === 'true' && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm">
+            <p className="font-semibold text-emerald-950">{language === 'th' ? 'เลือกบัญชีทดลอง แล้วกดเข้าสู่ระบบ' : 'Choose a demo account, then sign in'}</p>
+            <div className="mt-3 flex flex-wrap gap-2">{[['student','นักศึกษา / Student'],['intern','ผู้ฝึกงาน / Intern'],['hr','บริษัท / HR']].map(([account,label]) => <button key={account} type="button" onClick={() => {setEmail(`${account}@internflow.example.test`);setPassword('InternFlowDemo2026!');setError(null);}} className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-emerald-900 hover:bg-emerald-100">{label}</button>)}</div>
+            <p className="mt-2 text-xs text-emerald-800">{language === 'th' ? 'เป็นบัญชีที่ใช้ร่วมกัน โปรดอย่าใส่ข้อมูลส่วนตัว' : 'Shared demo accounts. Do not enter personal information.'}</p>
+          </div>}
           <form className="space-y-5" onSubmit={handleLogin}>
             {/* Email */}
             <div>

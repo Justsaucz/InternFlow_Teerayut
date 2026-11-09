@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { databaseFiles, readStoredUpload } from './lib/fileStorage';
+import { seedDemo } from './lib/seedDemo';
 
 dotenv.config();
 
@@ -27,10 +29,19 @@ import logbookFiles, { protectLegacyLogbookFiles, backfillLogbookAttachments } f
 
 app.use(cors());
 app.use(express.json());
+app.set('trust proxy', 1);
+app.use((_req, res, next) => { res.set('X-Robots-Tag', 'noindex, nofollow, noarchive'); next(); });
 
 // Serve static files for mock S3 uploads
 app.use('/api/logbook-files', logbookFiles);
-app.use('/uploads', protectLegacyLogbookFiles, express.static(process.env.UPLOAD_DIR || path.join(__dirname, '../uploads')));
+app.use('/uploads', protectLegacyLogbookFiles, async (req, res, next) => {
+  if (!databaseFiles()) return next();
+  try {
+    if (!['GET','HEAD'].includes(req.method)) { res.sendStatus(405); return; }
+    const file = await readStoredUpload('uploads' + req.path);
+    res.set({'Content-Type':file.mimeType,'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store'}).send(file.bytes);
+  } catch { res.sendStatus(404); }
+}, express.static(process.env.UPLOAD_DIR || path.join(__dirname, '../uploads')));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'InternFlow API is running' });
@@ -51,7 +62,7 @@ app.use('/api/readiness', readinessRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/profile', profileRoutes);
 
-backfillLogbookAttachments().then(() => {
+seedDemo().then(() => backfillLogbookAttachments()).then(() => {
   if(process.env.READINESS_PROCESSOR_DISABLED !== 'true') startReadinessNotices();
   app.listen(PORT, () => { console.log(`Server is running on http://localhost:${PORT}`); });
 }).catch(() => { console.error('Private logbook metadata could not be initialized. Server not started.'); process.exit(1); });

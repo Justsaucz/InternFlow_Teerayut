@@ -23,6 +23,7 @@ function App() {
   return (
     <LanguageProvider>
       <ToastProvider>
+        {import.meta.env.VITE_DEMO_MODE === 'true' && <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-950" role="note">เว็บทดลองฟรี · ใช้ข้อมูลสมมติเท่านั้น · อีเมลและ AI ยังไม่เปิดใช้ · Free demo: use fictional data only.</div>}
         <Router>
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-emerald-800" role="status">Loading InternFlow...</div>}><Routes>
           <Route path="/" element={<Home />} />

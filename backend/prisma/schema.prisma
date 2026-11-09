@@ -2,6 +2,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Used by the free hosted demo to retain attachments across API restarts.
+model StoredUpload {
+  fileKey String @id
+  bytes Bytes
+  mimeType String
+  createdAt DateTime @default(now())
+}
+
 datasource db {
   provider = "postgresql"
 }

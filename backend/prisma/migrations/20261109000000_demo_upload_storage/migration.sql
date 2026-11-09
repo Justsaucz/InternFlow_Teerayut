@@ -1,0 +1,6 @@
+CREATE TABLE "StoredUpload" (
+  "fileKey" TEXT NOT NULL PRIMARY KEY,
+  "bytes" BYTEA NOT NULL,
+  "mimeType" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

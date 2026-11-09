@@ -5,6 +5,7 @@ import https from 'node:https';
 import tls from 'node:tls';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { HttpError } from './workflow';
+import { databaseFiles, readStoredUpload } from './fileStorage';
 
 export type Question = { id: string; prompt: string; skill: string; type: 'TEXT' | 'TASK' | 'CHOICE'; options: string[]; expectedAnswer: string; points: number; contextId?: string; contextQuote?: string };
 export function cleanText(value: unknown, max: number, required = true) {
@@ -34,7 +35,11 @@ export async function documentBytes(doc: { fileUrl: string; mimeType: string | n
   if (forAi && (!doc.mimeType || !allowed.includes(doc.mimeType))) throw new HttpError(400, 'AI supports PDF, PNG, JPEG and WEBP evidence. Other formats can be reviewed manually.');
   let bytes: Buffer;
   if (/^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(doc.fileUrl)) {
+    if (databaseFiles()) {
+      bytes = (await readStoredUpload(doc.fileUrl.slice(1))).bytes;
+    } else {
     bytes = await readFile(path.join(doc.fileUrl.startsWith('/private-uploads/') ? (process.env.PRIVATE_UPLOAD_DIR || path.join(__dirname, '../../private-uploads')) : (process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads')), path.basename(doc.fileUrl)));
+    }
   } else {
     const bucket = process.env.S3_BUCKET_NAME, region = process.env.AWS_REGION || 'ap-southeast-1';
     if (!bucket) throw new HttpError(400, 'This document is not available in the configured storage.');

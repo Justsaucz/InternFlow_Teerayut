@@ -5,6 +5,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import { activeStatuses } from '../lib/workflow';
+import { databaseFiles, databaseStorage } from '../lib/fileStorage';
 
 const router = Router();
 
@@ -55,7 +56,7 @@ const localStorage = multer.diskStorage({
 // Determine which storage to use
 const isAwsConfigured = process.env.AWS_ACCESS_KEY_ID && process.env.S3_BUCKET_NAME;
 const upload = multer({ 
-  storage: isAwsConfigured ? s3Storage : localStorage,
+  storage: databaseFiles() ? databaseStorage : isAwsConfigured ? s3Storage : localStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
     const allowed: Record<string, string[]> = {
