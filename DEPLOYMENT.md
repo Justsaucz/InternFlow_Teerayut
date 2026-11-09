@@ -1,51 +1,48 @@
-# InternFlow cloud deployment
+# InternFlow free hosted demo
 
-## Prepared source
+Frontend: https://internflow-teerayut-justsaucz.eloquentorangutan2.chatgpt.site
 
-- Original source: `D:\Work2\internFlow_teerayut\InternFlow`.
-- GitHub: `https://github.com/JustSaucz/InternFlow_Teerayut`.
-- Deployment branch: `deploy/sites-render`.
-- The local, uncommitted CompanyApplicants UI was retained in this copy.
-- Local environment files, databases, and uploaded documents are excluded.
+API: https://internflow-teerayut-api-lrov.onrender.com
 
-## Target architecture
+## Hosting
 
-- Sites serves the existing React frontend.
-- Render runs the existing Express API and PostgreSQL 16 in Singapore.
-- A 1 GB persistent disk stores public images and private attachments in separate directories.
-- The Docker image builds compiled JavaScript, applies Prisma migrations, and starts the server without a development watcher.
-- Auto-deployment is disabled; review the initial Render Blueprint plan before applying it.
+- The original source at D:\Work2\internFlow_teerayut\InternFlow was not modified.
+- GitHub branch: deploy/sites-render.
+- Sites project: appgprj_6af1b3df014081918df0c96de156ccc0. Frontend source commit: c81430b79d53af84b02be01edf9a0774c83bbe31 in the separate Sites source repository.
+- Sites audience remains owner-private/custom. Add approved viewers to share privately. The private frontend is not anonymously accessible.
+- Render workspace: tea-dbor56h5efls73eoq310. Service: srv-dborm1ec6qcc738i0pa0. Plan: Free, Singapore. Auto-deploy is disabled.
+- Render Blueprint: exs-dborfb95efls73epj970. First successful deployment: dep-dborm2ec6qcc738i0s50.
+- Neon project: dawn-haze-66672812. Database: internflow. Plan: Free, Singapore. The app does not use the 30-day Render database trial.
+- Credentials are runtime settings. No connection URL, JWT secret or service token is committed.
 
-## Site identity (registered, not published)
+## Demo
 
-Project: `appgprj_6af1b3df014081918df0c96de156ccc0`
+The login page offers Student, Intern and HR account buttons. Shared sample password: InternFlowDemo2026!
 
-Expected origin: `https://internflow-teerayut-justsaucz.eloquentorangutan2.chatgpt.site`
+- student@internflow.example.test: apply to internships.
+- intern@internflow.example.test: committed placement, logbooks and evaluations.
+- hr@internflow.example.test: jobs, application review and evaluations.
 
-The expected origin is reserved metadata, not evidence that the website is live.
+These are shared synthetic accounts. Do not enter personal data. Idempotent startup seeding never deletes or resets records; the original destructive seed script is not used.
 
-The separate frontend checkout is `../internflow-site`, with the Site identity persisted in `.openai/hosting.json`.
+DEMO_MODE=true permits trial registration without sending verification mail. Such addresses are not verified. Normal production verification remains unchanged when the flag is disabled. Outbound account email and AI functions are not configured for this free demo.
 
-## Remaining work
+FILE_STORAGE=database stores attachments in PostgreSQL rather than the temporary Render filesystem. Existing document/logbook authorization protects private files. Demo limits: 100 MB of stored files total, 5 MB per file.
 
-1. Obtain GitHub write access, push this branch, and verify the remote commit.
-2. Create a Render Blueprint plan for this branch in confirmed workspace `tea-dbor56h5efls73eoq310`, with autoSync disabled.
-3. Review the planned resources and costs with the user before applying the plan.
-4. Configure a real outbound email provider in the API Environment settings. `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM` are required by this Blueprint; localhost/Mailpit is not an online email provider. Never commit their values. The application requires email delivery for registration and password recovery.
-5. If AI functions are wanted, configure `GEMINI_API_KEY` and a supported `GEMINI_MODEL` without committing the key.
-6. Apply the approved plan and verify its exact API URL and `/api/health`. Do not seed demo accounts automatically.
-7. Set `VITE_API_URL` to that verified HTTPS API origin when building the Sites frontend. The current localhost fallback must not be used in the deployed build.
-8. Package and push the Sites frontend source, save and deploy the resulting exact commit, then verify the site and critical workflows.
-9. Clarify whether anonymous/public Site access is required before changing the initial owner-private audience.
+The frontend requests noindex/nofollow/noarchive. Search-indexing preferences are separate from access control.
 
-## Validation
+## Verification
 
-- Frontend TypeScript project build passed.
-- Frontend Vite production build passed with `--configLoader runner`; this avoids writing temporary configuration into the read-only shared dependency directory during local validation.
+- Frontend TypeScript and Vite production build passed.
 - Backend TypeScript compilation passed.
-- Docker image execution and cloud database/email integration have not yet been verified.
+- Render built the Docker image, applied migrations and reported live status.
+- Live login passed for all three sample roles; three sample jobs were returned.
+- A synthetic PDF was uploaded to PostgreSQL and downloaded byte-for-byte by its owner and the associated HR account.
+- Anonymous, unrelated-user and direct private-URL requests were denied.
+- Initial database size: approximately 8 MB.
+- Browser automation could not attach to an in-app browser tab; visual browser QA is unverified.
 
-The local dependency junctions are for validation only. They are Git-ignored; Render installs its own dependencies using `npm ci`.
+## Free limits
 
-- Render Blueprint structure validated against the current official JSON Schema (2020-12) using Ajv.
+Render Free can sleep when idle, making the first request slow. Neon Free has resource quotas but no 30-day trial expiry. Do not upgrade plans without an owner request.
 
