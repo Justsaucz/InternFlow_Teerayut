@@ -7,7 +7,7 @@ API: https://internflow-teerayut-api-lrov.onrender.com
 ## Hosting
 
 - Original source in D:\Work2\internFlow_teerayut\InternFlow remains unchanged. Deployment source is on GitHub branch deploy/sites-render.
-- Sites project: appgprj_6af1b3df014081918df0c96de156ccc0. Its audience remains owner-private/custom. Sharing with other people requires approved viewers or an explicit audience change.
+- Sites project: appgprj_6af1b3df014081918df0c96de156ccc0. The owner changed its audience to public in Sites settings; final inspection confirmed that anyone with the link can load the frontend. Application data still requires a verified account and the appropriate role.
 - Render workspace: tea-dbor56h5efls73eoq310. Service: srv-dborm1ec6qcc738i0pa0. Plan: Free, Singapore. Auto-deploy is disabled.
 - Neon project: dawn-haze-66672812, database internflow, main branch br-snowy-flower-aztdr1m6. Plan: Free, Singapore, with no 30-day Render database trial.
 - Keep secrets in runtime settings. Do not commit DATABASE_URL, JWT_SECRET or GEMINI_API_KEY.
@@ -35,6 +35,8 @@ Recommended-job cards select actual open job listings; they do not represent pai
 - Previously verified byte-for-byte file upload/download, owner/company access and denial to unrelated/anonymous visitors.
 - The actual email delivery step must be confirmed by a recipient checking their inbox during signup; no personal recipient was used for automated tests.
 - Visual browser automation is unavailable in this session; deployed HTML, assets and SPA routes are checked over HTTP.
+- Live production backend deployment: dep-dboshu15efls73esl3qg, commit 2713055e6bda15cb26b14659dd8e6c34bafa6d72. Frontend source commit: b44ab3a7928c0c00ff96195c01e81a5a26d43ea1, deployment appgdep_6af1c94ff9e08191b6c308af0d4711e9.
+- Production checks confirmed no open sample jobs, rejected disposable/test addresses, rejected an invalid email OTP, and returned the OTP recovery flow for an unknown address without sending a message.
 
 ## Limits
 
