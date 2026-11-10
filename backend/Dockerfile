@@ -14,4 +14,6 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma genera
 
 ENV NODE_ENV=production
 EXPOSE 10000
-CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/index.js"]
+# Avoid acquiring a migration lock on ordinary restarts when the schema is current.
+# Pending migrations still run before the API starts, using the direct connection.
+CMD ["sh", "-c", "(npx prisma migrate status || npx prisma migrate deploy) && exec node dist/index.js"]
