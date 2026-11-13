@@ -6,7 +6,10 @@ export function browserFileUrl(value: string): string {
   try {
     const base = new URL(process.env.API_PUBLIC_URL);
     if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) return value;
-    return new URL(value, base.origin).href;
+    // Older deployed clients intercept /uploads/ links for authenticated previews.
+    // This alias remains private and is resolved back to its storage key by the API.
+    const clientPath = value.startsWith('/private-uploads/') ? '/uploads' + value : value;
+    return new URL(clientPath, base.origin).href;
   } catch { return value; }
 }
 
