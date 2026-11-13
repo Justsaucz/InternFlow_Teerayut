@@ -1047,7 +1047,10 @@ export default function StudentLogbook() {
                           onChange={(e) => handleAttachmentChange(idx, 'title', e.target.value)}
                         />
                         <input
-                          type="url"
+                          // Uploaded files use a private storage path, not an absolute web URL.
+                          // Keep native URL validation for external links only.
+                          type={/^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(link.url) ? 'text' : 'url'}
+                          readOnly={/^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(link.url)}
                           placeholder={t.logbook.linkUrlPlaceholder}
                           className="flex-1 border border-slate-200 bg-white rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-primary-500"
                           value={link.url}
