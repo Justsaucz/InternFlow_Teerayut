@@ -1,3 +1,4 @@
+import { browserFileUrl } from '../lib/logbook-urls';
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
@@ -117,7 +118,8 @@ router.post(['/', '/evidence', '/application', '/logbook'], authenticate, (req:A
       const document=await prisma.document.create({data:{userId:req.user!.userId,title:req.file.originalname,fileUrl,type:'PORTFOLIO_EVIDENCE',mimeType:req.file.mimetype,byteSize:req.file.size}});
       documentId=document.id;
     }
-    res.status(200).json({ url: fileUrl, fileUrl, documentId });
+    const responseUrl = req.path === '/logbook' ? browserFileUrl(fileUrl) : fileUrl;
+    res.status(200).json({ url: responseUrl, fileUrl: responseUrl, documentId });
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Internal server error during file upload' });
