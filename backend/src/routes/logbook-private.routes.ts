@@ -19,7 +19,7 @@ export function storagePath(url: string) {
     const bucket = process.env.S3_BUCKET_NAME;
     if (bucket && parsed.protocol === 'https:' && [`${bucket}.s3.amazonaws.com`, `${bucket}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com`].includes(parsed.hostname)) return decodeURIComponent(parsed.pathname);
     const origins = [process.env.API_PUBLIC_URL, `http://localhost:${process.env.PORT || 4000}`, `http://127.0.0.1:${process.env.PORT || 4000}`].filter(Boolean);
-    if ((origins.includes(parsed.origin) || ['localhost','127.0.0.1'].includes(parsed.hostname)) && /^\/uploads\/[a-zA-Z0-9_.-]+$/.test(parsed.pathname)) return parsed.pathname;
+    if ((origins.includes(parsed.origin) || ['localhost','127.0.0.1'].includes(parsed.hostname)) && /^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(parsed.pathname)) return parsed.pathname;
   } catch { /* external URL */ }
   return null;
 }
