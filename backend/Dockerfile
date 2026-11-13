@@ -10,7 +10,7 @@ RUN npm ci
 COPY prisma ./prisma/
 COPY . .
 
-RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate && npm run build
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate && npm run build && node --test tests/logbook-attachment-urls.test.cjs
 
 ENV NODE_ENV=production
 EXPOSE 10000
