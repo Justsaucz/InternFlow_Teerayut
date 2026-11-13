@@ -12,14 +12,21 @@ function urls(value: string | null): string[] {
   try { const entries = JSON.parse(value); if (Array.isArray(entries)) return entries.map(e => typeof e === 'string' ? e : e?.url).filter(v => typeof v === 'string'); } catch { /* legacy single URL */ }
   return value.split('\n').map(s => s.trim()).filter(Boolean);
 }
+function canonicalFilePath(value: string) {
+  const alias = /^\/uploads\/private-uploads\/([a-zA-Z0-9_.-]+)$/.exec(value);
+  if (alias) return '/private-uploads/' + alias[1];
+  return /^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(value) ? value : null;
+}
 export function storagePath(url: string) {
+  const relative = canonicalFilePath(url);
+  if (relative) return relative;
   if (/^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(url)) return url;
   try {
     const parsed = new URL(url);
     const bucket = process.env.S3_BUCKET_NAME;
     if (bucket && parsed.protocol === 'https:' && [`${bucket}.s3.amazonaws.com`, `${bucket}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com`].includes(parsed.hostname)) return decodeURIComponent(parsed.pathname);
     const origins = [process.env.API_PUBLIC_URL, `http://localhost:${process.env.PORT || 4000}`, `http://127.0.0.1:${process.env.PORT || 4000}`].filter(Boolean);
-    if ((origins.includes(parsed.origin) || ['localhost','127.0.0.1'].includes(parsed.hostname)) && /^\/(?:private-uploads|uploads)\/[a-zA-Z0-9_.-]+$/.test(parsed.pathname)) return parsed.pathname;
+    if (!parsed.username && !parsed.password && (origins.includes(parsed.origin) || ['localhost','127.0.0.1'].includes(parsed.hostname))) return canonicalFilePath(parsed.pathname);
   } catch { /* external URL */ }
   return null;
 }
