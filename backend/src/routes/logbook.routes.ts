@@ -1,3 +1,4 @@
+import { browserAttachments } from '../lib/logbook-urls';
 import { Router, Response } from 'express';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
@@ -62,7 +63,8 @@ function groupLogsByWeek(dailyLogs: any[]) {
   return Array.from(weekMap.values()).sort((a, b) => b.weekNumber - a.weekNumber);
 }
 
-function logSummary(logs: any[]) {
+function logSummary(storedLogs: any[]) {
+  const logs = storedLogs.map(log => ({ ...log, attachmentUrl: browserAttachments(log.attachmentUrl) }));
   return {
     logs, groupedWeeks: groupLogsByWeek(logs), targetHours,
     totalHours: logs.reduce((sum, log) => sum + log.hoursWorked, 0),
