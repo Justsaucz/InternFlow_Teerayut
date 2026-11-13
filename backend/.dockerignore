@@ -5,6 +5,7 @@ dist
 !.env.example
 uploads
 private-uploads
-tests
+tests/*
+!tests/logbook-attachment-urls.test.cjs
 .agents
 *.log
