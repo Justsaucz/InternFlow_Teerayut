@@ -3,7 +3,7 @@ const api = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 export default function LogbookFileLink({ href = '', children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) {
   const [error, setError] = useState('');
   const managed = /^\/(?:private-uploads|uploads)\//.test(href) || (() => {
-    try { const url = new URL(href); return (url.origin === new URL(api).origin && url.pathname.startsWith('/uploads/')) || (url.protocol === 'https:' && url.hostname.endsWith('.amazonaws.com') && /^\/(?:private-uploads|uploads)\//.test(url.pathname)); } catch { return false; }
+    try { const url = new URL(href); return (url.origin === new URL(api).origin && /^\/(?:private-uploads|uploads)\//.test(url.pathname)) || (url.protocol === 'https:' && url.hostname.endsWith('.amazonaws.com') && /^\/(?:private-uploads|uploads)\//.test(url.pathname)); } catch { return false; }
   })();
   async function open(event: MouseEvent<HTMLAnchorElement>) {
     if (!managed) return;
